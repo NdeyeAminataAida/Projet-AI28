@@ -21,23 +21,23 @@ NUMERIC_FEATURES = (["LIMIT_BAL", "AGE"]+ PAY_FEATURES+ BILL_FEATURES+ PAY_AMT_F
 
 def build_logistic_preprocessor():
     preprocessor = make_column_transformer(
-        ("cat", OneHotEncoder(drop="first"), CATEGORICAL_FEATURES),
-        ("num", StandardScaler(), NUMERIC_FEATURES)
+        (OneHotEncoder(drop="first"), CATEGORICAL_FEATURES),
+        (StandardScaler(), NUMERIC_FEATURES)
     )
     return preprocessor
 
 def build_robust_preprocessor():
 
     preprocessor = make_column_transformer(
-            ("cat",OneHotEncoder(drop="first"),CATEGORICAL_FEATURES),
-            ("num",RobustScaler(),NUMERIC_FEATURES)
+            (OneHotEncoder(drop="first"), CATEGORICAL_FEATURES),
+            (RobustScaler(), NUMERIC_FEATURES)
     )
     return preprocessor
 
 def build_tree_preprocessor():
 
     preprocessor = make_column_transformer(
-            ("cat",OneHotEncoder(drop="first"),CATEGORICAL_FEATURES),
+            (OneHotEncoder(drop="first"), CATEGORICAL_FEATURES),
         remainder="passthrough"
     )
     return preprocessor
