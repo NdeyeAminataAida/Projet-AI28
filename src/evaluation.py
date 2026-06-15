@@ -37,3 +37,49 @@ def plot_confusion_matrix(y_true, y_pred, title="Matrice de confusion"):
     plt.show()
 
     return cm
+
+import matplotlib.pyplot as plt
+from sklearn.metrics import PrecisionRecallDisplay, average_precision_score
+
+
+def plot_models_pr_curves(models_dict, X_val, y_val, title="Comparaison des Courbes Précision-Rappel (PRC)"):
+    """
+    Calcule les scores PR-AUC et trace les courbes Précision-Rappel 
+    de plusieurs modèles sur un même graphique.
+
+    Parameters:
+    -----------
+    models_dict : dict
+        Dictionnaire contenant les pipelines { "Nom du Modèle": pipeline_instanciée }
+    X_val : DataFrame ou array
+        Features du jeu de validation
+    y_val : Series ou array
+        Cible du jeu de validation
+    title : str
+        Titre du graphique
+    """
+    plt.figure(figsize=(9, 7))
+    ax = plt.gca()
+
+    print("--- Scores PR-AUC (Average Precision) ---")
+    
+    # Boucle sur chaque modèle du dictionnaire pour calculer le score et tracer la courbe
+    for name, pipeline in models_dict.items():
+        # Récupération des probabilités de la classe 1
+        y_proba = pipeline.predict_proba(X_val)[:, 1]
+        score_pr_auc = average_precision_score(y_val, y_proba)
+        
+        print(f"{name} : {score_pr_auc:.3f}")
+        
+        # Ajout de la courbe sur le graphique commun
+        PrecisionRecallDisplay.from_estimator(
+            pipeline, X_val, y_val, ax=ax, name=f"{name} (PR-AUC = {score_pr_auc:.3f})"
+        )
+
+    # Configuration et habillage du graphique
+    plt.title(title, fontsize=14)
+    plt.xlabel("Rappel (Recall)")
+    plt.ylabel("Précision")
+    plt.legend(loc="upper right")
+    plt.grid(True, linestyle="--", alpha=0.6)
+    plt.show()

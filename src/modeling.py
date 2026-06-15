@@ -1,4 +1,4 @@
-from sklearn.ensemble import AdaBoostClassifier
+from sklearn.ensemble import AdaBoostClassifier,GradientBoostingClassifier,RandomForestClassifier
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.pipeline import make_pipeline
 
@@ -33,6 +33,38 @@ def build_logistic_model(C=1.0, class_weight=None):
     pipeline = make_pipeline(preprocessor, classifier)
     return pipeline
 
+def build_decision_tree_model(max_depth=None, class_weight=None):
+    """
+    Construit une pipeline complète d'Arbre de Décision simple.
+    
+    Les arbres n'ont pas besoin de normalisation des montants, 
+    on utilise donc le préprocesseur minimal (build_tree_preprocessor).
+    """
+    preprocessor = build_tree_preprocessor()
+    classifier = DecisionTreeClassifier(
+        max_depth=max_depth,
+        class_weight=class_weight,
+        random_state=42
+    )
+    return make_pipeline(preprocessor, classifier)
+
+def build_random_forest_model(n_estimators=100, max_depth=None, class_weight=None):
+    """
+    Construit une pipeline complète de Random Forest (pré-traitement + modèle).
+    
+    Modèle d'ensemble par Bagging. Idéal pour réduire la variance d'arbres simples.
+    """
+    preprocessor = build_tree_preprocessor()
+    classifier = RandomForestClassifier(
+        n_estimators=n_estimators,
+        max_depth=max_depth,
+        class_weight=class_weight,
+        random_state=42,
+        n_jobs=-1  # Utilise tous les cœurs du processeur pour accélérer l'entraînement
+    )
+    return make_pipeline(preprocessor, classifier)
+
+
 def build_adaboost_model(n_estimators=100, learning_rate=1.0, max_depth=1, class_weight=None):
     '''
     Construit une pipeline AdaBoost (méthode d'ensemble séquentielle / boosting).
@@ -64,3 +96,20 @@ def build_adaboost_model(n_estimators=100, learning_rate=1.0, max_depth=1, class
         )
     )
     return model
+
+
+def build_gradient_boost_model(n_estimators=100, learning_rate=0.1, max_depth=3):
+    """
+    Construit une pipeline complète de Gradient Boosting.
+    
+    Modèle d'ensemble séquentiel puissant. Il construit des arbres successifs
+    pour corriger les erreurs des précédents en utilisant la descente de gradient.
+    """
+    preprocessor = build_tree_preprocessor()
+    classifier = GradientBoostingClassifier(
+        n_estimators=n_estimators,
+        learning_rate=learning_rate,
+        max_depth=max_depth,
+        random_state=42
+    )
+    return make_pipeline(preprocessor, classifier)
