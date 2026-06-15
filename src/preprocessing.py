@@ -17,22 +17,22 @@ BILL_FEATURES = ["BILL_AMT1","BILL_AMT2","BILL_AMT3","BILL_AMT4","BILL_AMT5","BI
 PAY_AMT_FEATURES = ["PAY_AMT1","PAY_AMT2","PAY_AMT3","PAY_AMT4","PAY_AMT5","PAY_AMT6"]
 
 # Variables numériques
-NUMERIC_FEATURES = (["LIMIT_BAL", "AGE"]+ PAY_FEATURES+ BILL_FEATURES+ PAY_AMT_FEATURES)
+NUMERIC_FEATURES = (["LIMIT_BAL", "AGE"]+ BILL_FEATURES+ PAY_AMT_FEATURES)
 
 def build_logistic_preprocessor():
     preprocessor = make_column_transformer(
         (OneHotEncoder(drop="first"), CATEGORICAL_FEATURES),
+        (OneHotEncoder(drop="first"), PAY_FEATURES),
         (StandardScaler(), NUMERIC_FEATURES),
-        (OneHotEncoder(drop='first'),PAY_FEATURES),
     )
     return preprocessor
 
 def build_robust_preprocessor():
 
     preprocessor = make_column_transformer(
-            (OneHotEncoder(drop="first"),CATEGORICAL_FEATURES),
-            (RobustScaler(),NUMERIC_FEATURES),
-            (OneHotEncoder(drop='first'),PAY_FEATURES),
+            (OneHotEncoder(drop="first"), CATEGORICAL_FEATURES),
+            (OneHotEncoder(drop="first"), PAY_FEATURES),
+            (StandardScaler(), NUMERIC_FEATURES),
     )
     return preprocessor
 

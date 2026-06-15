@@ -3,20 +3,20 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from sklearn.metrics import confusion_matrix
 
-def train_and_evaluate(model, X_train, y_train, X_test, y_test):
+def train_and_evaluate(model, X_train, y_train, X_val, y_val):
     """
     Entraîne et évalue un modèle sklearn.
     """
     model.fit(X_train, y_train)
 
     y_train_pred = model.predict(X_train)
-    y_test_pred = model.predict(X_test)
+    y_test_pred = model.predict(X_val)
 
     print("--------- Métriques pour TRAIN ---------")
     print(classification_report(y_train, y_train_pred))
 
-    print("--------- Métriques pour TEST ---------")
-    print(classification_report(y_test, y_test_pred))
+    print("--------- Métriques pour VALIDATION ---------")
+    print(classification_report(y_val, y_test_pred))
 
     return model
 
