@@ -28,37 +28,66 @@ def _get_positive_scores(model, X):
     return model.decision_function(X)
 
 
-def train_and_evaluate(model, X_train, y_train, X_val, y_val):
+def train_and_evaluate(pipeline, X_train, y_train, X_val, y_val):
     """
-    Entraîne et évalue un modèle sklearn.
+    Entraîne une pipeline et affiche les classification reports 
+    pour les ensembles de Train et de Validation.
     """
-    model.fit(X_train, y_train)
+    pipeline.fit(X_train, y_train)
 
-    y_train_pred = model.predict(X_train)
-    y_test_pred = model.predict(X_val)
+    y_train_pred = pipeline.predict(X_train)
 
     print("--------- Métriques pour TRAIN ---------")
     print(classification_report(y_train, y_train_pred))
 
+    y_val_pred = pipeline.predict(X_val)
+    
     print("--------- Métriques pour VALIDATION ---------")
-    print(classification_report(y_val, y_test_pred))
+    print(classification_report(y_val, y_val_pred))
 
-    return model
+    return pipeline
 
 
-def plot_confusion_matrix(y_true, y_pred, title="Matrice de confusion"):
+def plot_confusion_matrix(model, X, y_true, title="Matrice de confusion"):
     """
-    Affiche une matrice de confusion avec heatmap seaborn.
+    Génère les prédictions et affiche la matrice de confusion sous forme de heatmap.
+    
+    Parameters:
+    -----------
+    model : pipeline ou estimateur entraîné
+        Le modèle à évaluer
+    X : DataFrame ou array
+        Les variables explicatives (Features)
+    y_true : Series ou array
+        La variable cible réelle (Target)
+    title : str
+        Titre du graphique
     """
+    # Génération automatique des prédictions
+    y_pred = model.predict(X)
+    
+    # Calcul de la matrice
     cm = confusion_matrix(y_true, y_pred)
 
-    plt.figure(figsize=(5,4))
-    sns.heatmap(cm, annot=True, fmt='d', cmap='Blues')
+    # Affichage graphique
+    plt.figure(figsize=(6, 5))
+    sns.heatmap(
+        cm, 
+        annot=True, 
+        fmt='d', 
+        cmap='Blues',
+        xticklabels=["Solvable (0)", "Défaut (1)"],
+        yticklabels=["Solvable (0)", "Défaut (1)"],
+        cbar=True,
+        annot_kws={'size': 14, 'weight': 'bold'}
+    )
 
-    plt.xlabel("Prédit")
-    plt.ylabel("Réel")
-    plt.title(title)
-
+    # Labeling propre
+    plt.xlabel("Prédit", fontsize=12, labelpad=10)
+    plt.ylabel("Réel", fontsize=12, labelpad=10)
+    plt.title(title, fontsize=14, weight='bold', pad=15)
+    
+    plt.tight_layout()
     plt.show()
 
     return cm
@@ -248,14 +277,12 @@ def plot_models_pr_curves(models_dict, X_val, y_val, title="Comparaison des Cour
         print(f"{name} : {score_pr_auc:.3f}")
         
         # Ajout de la courbe sur le graphique commun
-        PrecisionRecallDisplay.from_estimator(
-            pipeline, X_val, y_val, ax=ax, name=f"{name} (PR-AUC = {score_pr_auc:.3f})"
-        )
+        #PrecisionRecallDisplay.from_estimator(pipeline, X_val, y_val, ax=ax, name=f"{name} (PR-AUC = {score_pr_auc:.3f})")
 
     # Configuration et habillage du graphique
     plt.title(title, fontsize=14)
     plt.xlabel("Rappel (Recall)")
     plt.ylabel("Précision")
-    plt.legend(loc="upper right")
+    #plt.legend(loc="upper right")
     plt.grid(True, linestyle="--", alpha=0.6)
     plt.show()
