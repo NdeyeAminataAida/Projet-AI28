@@ -165,9 +165,15 @@ def summarize_hyperparameters(model_configs, fitted_models):
     format long : une ligne par couple (modèle, hyper-paramètre), pratique à afficher
     dans le rapport à côté du tableau des PR-AUC.
     '''
+    class _KR:
+        def __init__(self): self.keys = []
+        def suggest_float(self, name, *a, **kw): self.keys.append(name); return 1.0
+        def suggest_int(self, name, *a, **kw): self.keys.append(name); return 1
+        def suggest_categorical(self, name, choices, **kw): self.keys.append(name); return choices[0]
+
     rows = []
     for name, config in model_configs.items():
-        recorder = _KeyRecorder()
+        recorder = _KR()
         config["suggest"](recorder)  # remplit recorder.keys avec les noms optimisés
         params = fitted_models[name].get_params()
         for key in recorder.keys:
