@@ -1,5 +1,8 @@
+from sklearn.linear_model import LogisticRegression
 from sklearn.ensemble import AdaBoostClassifier,GradientBoostingClassifier,RandomForestClassifier
 from sklearn.tree import DecisionTreeClassifier
+from sklearn.svm import SVC
+from sklearn.neighbors import KNeighborsClassifier
 from sklearn.pipeline import make_pipeline
 
 from src.preprocessing import build_tree_preprocessor, build_logistic_preprocessor
@@ -9,7 +12,7 @@ On définit ici les fonctions qui construisent les modèles.
 Chaque fonction renvoie une pipeline complète (pré-traitement + modèle)
 prête à être passée à train_and_evaluate() de evaluation.py.
 '''
-from sklearn.linear_model import LogisticRegression
+
     
 
 def build_logistic_model(C=1.0, class_weight=None):
@@ -112,4 +115,29 @@ def build_gradient_boost_model(n_estimators=100, learning_rate=0.1, max_depth=3)
         max_depth=max_depth,
         random_state=42
     )
+    return make_pipeline(preprocessor, classifier)
+
+def build_svm_model(kernel='linear', C=1.0, class_weight='balanced'):
+    """
+    Pipeline SVM (Support Vector Machine).
+    Le SVM étant basé sur des calculs de marges géométriques,
+    le préprocesseur linéaire avec normalisation est obligatoire.
+    """
+    preprocessor = build_logistic_preprocessor()
+    classifier = SVC(
+        kernel=kernel, 
+        C=C, 
+        class_weight=class_weight, 
+        probability=True,  # Indispensable pour calculer la probabilité et la PR-AUC
+        random_state=42
+    )
+    return make_pipeline(preprocessor, classifier)
+
+def build_knn_model(n_neighbors=5):
+    """
+    Pipeline KNN (K-Nearest Neighbors).
+    Modèle basé sur les distances, normalisation obligatoire.
+    """
+    preprocessor = build_logistic_preprocessor()
+    classifier = KNeighborsClassifier(n_neighbors=n_neighbors, n_jobs=-1)
     return make_pipeline(preprocessor, classifier)
