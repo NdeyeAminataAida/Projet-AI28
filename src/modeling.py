@@ -266,7 +266,7 @@ def get_model_configurations(class_weight="balanced"):
             },
             # Peu d'essais : la SVM à noyau RBF est en O(n²), donc coûteuse sur
             # ~18k exemples × cv plis. On limite le budget d'optimisation.
-            "n_trials": 6,
+            "n_trials": 15,
         },
         "Arbre de Décision": {
             "build": lambda cw=class_weight: build_decision_tree_model(class_weight=cw),
