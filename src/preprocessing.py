@@ -38,6 +38,23 @@ def build_logistic_preprocessor():
     )
     return preprocessor
 
+def build_robust_preprocessor():
+    '''
+    Variante du pré-processeur "à distance" utilisant RobustScaler au lieu de
+    StandardScaler pour les variables numériques.
+
+    RobustScaler centre sur la médiane et met à l'échelle via l'écart interquartile :
+    il est beaucoup moins sensible aux valeurs extrêmes que StandardScaler, ce qui
+    est utile ici car les montants (BILL_AMT, PAY_AMT, LIMIT_BAL) présentent de
+    fortes valeurs aberrantes.
+    '''
+    preprocessor = make_column_transformer(
+        (OneHotEncoder(drop="first", handle_unknown="ignore"), CATEGORICAL_FEATURES),
+        (OneHotEncoder(drop="first", handle_unknown="ignore"), PAY_FEATURES),
+        (RobustScaler(), NUMERIC_FEATURES),
+    )
+    return preprocessor
+
 def build_tree_preprocessor():
 
     # Idem : on ignore les modalités inconnues pour fiabiliser le GridSearchCV
