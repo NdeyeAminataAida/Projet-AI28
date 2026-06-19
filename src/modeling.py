@@ -233,7 +233,7 @@ def get_model_configurations(class_weight="balanced"):
     (le déséquilibre ~22 % de défauts est ainsi traité de façon homogène). Le KNN
     et le Gradient Boosting n'ont pas ce paramètre : on les laisse tels quels.
 
-    Plutôt que les grilles discrètes de GridSearchCV, on définit ici des plages
+    On définit ici des plages
     continues (suggest_float en échelle log pour C / learning_rate, suggest_int
     pour les profondeurs / nombres d'arbres). Optuna (échantillonneur TPE) explore
     ces plages plus finement et plus efficacement qu'une grille exhaustive.

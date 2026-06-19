@@ -277,12 +277,12 @@ def plot_models_pr_curves(models_dict, X_val, y_val, title="Comparaison des Cour
         print(f"{name} : {score_pr_auc:.3f}")
         
         # Ajout de la courbe sur le graphique commun
-        #PrecisionRecallDisplay.from_estimator(pipeline, X_val, y_val, ax=ax, name=f"{name} (PR-AUC = {score_pr_auc:.3f})")
+        PrecisionRecallDisplay.from_estimator(pipeline, X_val, y_val, ax=ax, name=f"{name} (PR-AUC = {score_pr_auc:.3f})")
 
     # Configuration et habillage du graphique
     plt.title(title, fontsize=14)
     plt.xlabel("Rappel (Recall)")
     plt.ylabel("Précision")
-    #plt.legend(loc="upper right")
+    plt.legend(loc="upper right")
     plt.grid(True, linestyle="--", alpha=0.6)
     plt.show()

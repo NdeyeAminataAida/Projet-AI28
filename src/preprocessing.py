@@ -57,7 +57,7 @@ def build_robust_preprocessor():
 
 def build_tree_preprocessor():
 
-    # Idem : on ignore les modalités inconnues pour fiabiliser le GridSearchCV
+    # Idem : on ignore les modalités inconnues pour fiabiliser la validation croisée
     preprocessor = make_column_transformer(
             (OneHotEncoder(drop="first", handle_unknown="ignore"), CATEGORICAL_FEATURES),
         remainder="passthrough"
