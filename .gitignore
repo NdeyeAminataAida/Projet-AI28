@@ -1,0 +1,17 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.ipynb_checkpoints/
+
+# Environnements virtuels
+.venv/
+venv/
+env/
+
+# Outils / éditeurs
+.claude/
+
+# Fichiers temporaires / brouillons
+_*.py
+_*.txt
