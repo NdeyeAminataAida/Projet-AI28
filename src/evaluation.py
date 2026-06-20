@@ -283,6 +283,10 @@ def plot_models_pr_curves(models_dict, X_val, y_val, title="Comparaison des Cour
     plt.title(title, fontsize=14)
     plt.xlabel("Rappel (Recall)")
     plt.ylabel("Précision")
-    plt.legend(loc="upper right")
+    plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left', borderaxespad=0.,fontsize=10, 
+        prop={'size': 10, 'weight': 'normal'})
     plt.grid(True, linestyle="--", alpha=0.6)
+   # Pour forcer le graphique à garder une forme carrée et laisser 35% d'espace libre à droite pour la légende
+    plt.gcf().set_size_inches(9, 6) # Donne une taille globale propre au graphique
+    plt.subplots_adjust(right=0.65, left=0.1, top=0.9, bottom=0.1)
     plt.show()
