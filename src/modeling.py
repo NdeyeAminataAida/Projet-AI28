@@ -264,9 +264,11 @@ def get_model_configurations(class_weight="balanced"):
                 "svc__C": trial.suggest_float("svc__C", 0.1, 100, log=True),
                 "svc__gamma": trial.suggest_categorical("svc__gamma", ["scale", "auto"]),
             },
-            # Peu d'essais : la SVM à noyau RBF est en O(n²), donc coûteuse sur
-            # ~18k exemples × cv plis. On limite le budget d'optimisation.
-            "n_trials": 15,
+            # La SVM à noyau RBF est en O(n²), donc coûteuse sur ~18k exemples
+            # × cv plis : on garde le même budget de 25 essais que les autres
+            # modèles, déjà suffisant vu son petit espace d'hyper-paramètres
+            # (C et gamma).
+            "n_trials": 25,
         },
         "Arbre de Décision": {
             "build": lambda cw=class_weight: build_decision_tree_model(class_weight=cw),
