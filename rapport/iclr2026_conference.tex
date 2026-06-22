@@ -1,0 +1,266 @@
+
+\documentclass{article} % For LaTeX2e
+\usepackage{iclr2026_conference,times}
+
+% Optional math commands from https://github.com/goodfeli/dlbook_notation.
+\input{math_commands.tex}
+
+\usepackage{hyperref}
+\usepackage{url}
+
+
+\title{Détection de défaut de paiement sur le mois prochain}
+
+\author{
+CHAPLAIN-DURAND Armand et FAYE Ndeye Aminata Aida
+}
+
+% The \author macro works with any number of authors. There are two commands
+% used to separate the names and addresses of multiple authors: \And and \AND.
+%
+% Using \And between authors leaves it to \LaTeX{} to determine where to break
+% the lines. Using \AND forces a linebreak at that point. So, if \LaTeX{}
+% puts 3 of 4 authors names on the first line, and the last on the second
+% line, try using \AND instead of \And before the third author name.
+
+\newcommand{\fix}{\marginpar{FIX}}
+\newcommand{\new}{\marginpar{NEW}}
+
+%\iclrfinalcopy % Uncomment for camera-ready version, but NOT for submission.
+\begin{document}
+
+
+\maketitle
+
+\begin{abstract}
+La détection du défaut de paiement constitue un enjeu majeur pour les institutions financières, car une mauvaise estimation du risque peut conduire à des pertes économiques importantes. Ce projet étudie la prédiction du défaut de paiement des clients d'une banque taïwanaise à partir de leurs informations démographiques, financières et de leur historique de remboursement. Une démarche complète de machine learning est mise en œuvre, comprenant une analyse exploratoire des données, un prétraitement adapté à la nature des variables, la comparaison de plusieurs modèles de classification, leur optimisation par recherche d'hyperparamètres et l'évaluation de leurs performances. Une attention particulière est portée à la détection des clients en défaut, classe minoritaire mais présentant le risque financier le plus important.
+\end{abstract}
+
+\section{Introduction}
+
+L'octroi d'un crédit représente un compromis entre opportunité commerciale et maîtrise du risque financier. Pour les établissements bancaires, identifier les clients susceptibles de ne pas honorer leurs remboursements constitue donc un problème essentiel de gestion du risque.
+
+Dans cette étude, nous nous intéressons au jeu de données \textit{Default of Credit Card Clients}, contenant des informations relatives à 30 000 clients d'une banque taïwanaise. Chaque observation est décrite par des caractéristiques socio-démographiques (âge, sexe, situation matrimoniale, niveau d'éducation), des informations financières (plafond de crédit, montants des factures et remboursements) ainsi que l'historique de remboursement sur les six derniers mois (d'Avril à Septembre 2005).
+
+L'objectif consiste à construire un modèle de classification binaire capable de prédire si un client sera en défaut de paiement le mois suivant. Cette tâche présente une difficulté particulière liée au déséquilibre des classes : les clients en défaut représentent environ 22 \% de l'échantillon, contre 78 \% de clients réguliers. Une attention particulière sera donc portée aux métriques permettant d'évaluer la capacité du modèle à détecter correctement les clients risqués.
+
+\section{Analyse exploratoire des données}
+
+Le jeu de données comprend 30 000 observations décrivant des clients titulaires d'une carte de crédit et 24 variables explicatives.
+
+Les variables disponibles se divisent en plusieurs catégories sémantiques : les informations démographiques du client (\texttt{SEX}, \texttt{EDUCATION}, \texttt{MARRIAGE}), sa capacité financière (\texttt{LIMIT\_BAL}, \texttt{AGE}), son comportement financier récent à travers les montants des factures mensuelles (\texttt{BILL\_AMT1} à \texttt{BILL\_AMT6}) et des remboursements effectués (\texttt{PAY\_AMT1} à \texttt{PAY\_AMT6}), ainsi que l'historique des statuts de remboursement des six derniers mois (\texttt{PAY\_0} à \texttt{PAY\_6}). La variable cible binaire \texttt{default payment next month} présente un déséquilibre marqué : la classe correspondant aux clients en défaut de paiement ne représente que 22,2\,\% de l'effectif global. L'exactitude globale (\textit{Accuracy}) peut donc être trompeuse, puisqu'un modèle privilégiant systématiquement la classe majoritaire pourrait obtenir une performance élevée tout en détectant mal les clients en défaut. L'évaluation des modèles s'appuiera donc principalement sur le rappel, le F1-score et l'aire sous la courbe Precision-Recall (PR-AUC), mieux adaptés à ce contexte de déséquilibre des classes.
+
+
+
+L'analyse de l'historique de remboursement révèle la présence fréquente de la modalité \texttt{-2}, absente de la documentation initiale du jeu de données. Cette valeur représente entre 9,20\,\% et 16,32\,\% des observations selon les mois. Une analyse métier, appuyée par un échange avec un expert du secteur financier, indique que cette modalité correspond à des comptes de cartes de crédit inactifs, caractérisés par l'absence de transaction ou de solde exigible sur la période considérée. Sa fréquence importante ainsi que sa présence cohérente sur l'ensemble des mois permettent d'écarter l'hypothèse d'une erreur de saisie. La proportion de comptes inactifs diminue progressivement d'avril à septembre, suggérant une activation progressive des cartes de crédit au cours de l'année. De ce fait, supprimer ces observations conduirait à une perte importante d'information, pouvant atteindre 16\,\% de certaines variables temporelles. Ces modalités seront donc conservées dans l'ensemble des expériences afin de préserver le comportement réel des clients.
+
+L'examen de la matrice de corrélation de Pearson met en évidence deux structures de colinéarité majeures entre les variables explicatives :
+\begin{itemize}
+    \item Une dépendance linéaire extrême (entre 0,80 et 0,95) parmi les montants de facturation consécutifs (\texttt{BILL\_AMT1} à \texttt{BILL\_AMT6}), traduisant la stabilité ou l'accumulation de l'endettement.
+    \item Une corrélation positive marquée (entre 0,47 et 0,82) entre les statuts de paiement (\texttt{PAY\_0} à \texttt{PAY\_6}), indiquant qu'un retard de paiement a tendance à persister ou à s'aggraver le mois suivant.
+\end{itemize}
+
+Enfin, l'analyse des corrélations avec la variable cible démontre que les statuts de paiement récents sont les plus prédictifs, le signal s'accentuant à l'approche de l'échéance (de 0,19 pour \texttt{PAY\_6} à 0,32 pour \texttt{PAY\_0}). À l'inverse, la limite de crédit (\texttt{LIMIT\_BAL}) affiche une corrélation négative significative (-0,15), confirmant que les plafonds élevés sont accordés à des profils statistiquement moins risqués. Les variables socio-démographiques présentent des corrélations proches de zéro, indiquant une absence d'impact linéaire direct sur le risque de défaut.
+
+\section{Pré-traitement des données}
+
+L'analyse descriptive confirme l'absence totale de valeurs manquantes sur l'ensemble du jeu de données, éliminant le besoin d'une étape d'imputation. Afin de préparer les données pour la modélisation tout en respectant les spécificités mathématiques de chaque algorithme, une stratégie de pré-traitement différenciée a été utilisée dans des \textit{pipelines} Scikit-Learn. Conformément à la méthodologie standard, la Régression Logistique est implémentée comme modèle de référence simple afin d'établir une base de performance.
+
+\subsection{Traitement des variables catégorielles (\texttt{SEX}, \texttt{EDUCATION}, \texttt{MARRIAGE})}
+Bien que codées sous forme d'entiers, ces variables représentent des catégories nominales sans relation d'ordre ou de grandeur mathématique. Pour empêcher les modèles d'interpréter ces codes de façon linéaire, un encodage disjonctif complet (\textit{One-Hot Encoding}) est appliqué. Afin d'éviter le piège de la colinéarité parfaite et d'alléger l'espace des descripteurs, l'option \texttt{drop='first'} est activée, supprimant la première modalité de chaque groupe dont l'état se déduit logiquement des autres.
+
+\subsection{Traitement des variables continues et montants (\texttt{LIMIT\_BAL}, \texttt{AGE}, \texttt{BILL\_AMT}, \texttt{PAY\_AMT})}
+Ces variables numériques affichent des échelles de valeurs très hétérogènes (l'âge variant de 21 à près de 80 ans face à des encours de facturation pouvant dépasser le million de dollars NT) et intègrent de nombreuses valeurs extrêmes significatives (clients à forte capacité financière). Les montants négatifs observés dans les variables \texttt{BILL\_AMT} sont conservés car ils traduisent une réalité métier cohérente (un solde créditeur en faveur du client), toujours suite à discussion avec expert financier.
+
+Pour garantir la convergence des modèles linéaires et éviter qu'ils ne privilégient artificiellement les variables aux ordres de grandeur élevés, une standardisation est indispensable. Le choix s'est porté sur l'application d'un \texttt{RobustScaler}. En s'appuyant sur la médiane et l'écart interquartile plutôt que sur la moyenne et l'écart-type (\texttt{StandardScaler}), ce transformateur normalise les données tout en restant totalement insensible aux valeurs aberrantes, préservant ainsi l'intégrité de la distribution sans distorsion du signal.
+
+\subsection{Traitement des variables d'historique de remboursement (\texttt{PAY\_0} à \texttt{PAY\_6})}
+Les variables décrivant les statuts de remboursement mensuels présentent une structure hybride non linéaire : les modalités positives mesurent l'intensité d'un retard de paiement (de 1 à 9 mois), tandis que les modalités négatives (\texttt{-1} pour paiement à l'échéance et \texttt{-2} pour compte inactif) qualifient des situations saines ou neutres. Conserver ces valeurs sous forme d'échelle continue imposerait l'hypothèse erronée qu'un écart de même amplitude possède un effet identique sur le logarithme de la probabilité de défaut. Face à cette contrainte, deux stratégies distinctes ont été intégrées :
+
+\begin{enumerate}
+    \item \textbf{Stratégie pour la Régression Logistique :} Un encodage \textit{One-Hot} est appliqué à ces sept variables. Chaque modalité (y compris \texttt{-2}) est transformée en une variable binaire indépendante. Cela permet au modèle linéaire d'associer un coefficient spécifique et adapté à chaque comportement de paiement, libérant l'apprentissage de toute contrainte d'ordre artificielle.
+    \item \textbf{Stratégie pour les modèles basés sur des arbres (\texttt{DecisionTree}, \texttt{RandomForest}) :} Les variables \texttt{PAY} sont conservées sous leur forme numérique originale. Les algorithmes d'arbres étant intrinsèquement non paramétriques, ils sont capables de gérer naturellement les non-linéarités, les seuils et les règles de séparation sur des valeurs discrètes sans nécessiter de normalisation ou d'encodage préalable.
+\end{enumerate}
+\section{Modélisation et Optimisation}
+
+Afin d'identifier l'architecture la plus performante pour la banque, un large panel de modèles prédictifs représentatifs de l'état de l'art a été évalué. Pour chaque algorithme, le problème de classification binaire est modélisé par une fonction de prédiction $f(\vx) \in [0, 1]$, estimant la probabilité conditionnelle du défaut $P(Y=1 \mid \vx)$.
+
+\subsection{Régression Logistique}
+
+La régression logistique est retenue comme le modèle de référence initial de notre étude en raison de sa nature de classificateur linéaire, particulièrement adaptée pour établir une base de performance simple et interprétable. Contrairement à une régression linéaire classique qui prédirait des valeurs continues privées de sens métier pour notre problématique, la régression logistique estime directement la probabilité qu'un client appartienne à la classe de défaut de paiement (classe 1). Pour ce faire, le modèle combine linéairement les variables explicatives du client avant de passer ce résultat à travers la fonction mathématique \textebf{sigmoïde}, ce qui permet de contracter n'importe quelle valeur réelle en une probabilité strictement comprise entre 0 et 1.
+
+Cette probabilité continue obtenue en sortie du modèle nécessite l'application d'un seuil de décision afin de formuler une prédiction binaire concrète. Par défaut, ce seuil de discrimination est mathématiquement fixé à 0,5 : si la probabilité calculée qu'un individu soit en défaut est supérieure ou égale à ce seuil, le modèle l'affecte à la classe 1, et à la classe 0 dans le cas contraire. Dans un contexte de données fortement déséquilibrées comme le nôtre, où la classe minoritaire ne représente que 22,2\,\% du jeu de données, ce seuil standard de 0,5 s'avère toutefois inadapté. L'algorithme a naturellement tendance à maximiser l'exactitude globale en privilégiant la classe majoritaire des clients solvables. Sans ajustement, les prédictions initiales révèlent un nombre élevé de faux négatifs et un rappel extrêmement faible sur la classe minoritaire (classe 1), une situation critique pour la gestion des risques de la banque puisque la majorité des défauts de paiement réels ne sont pas interceptés.
+
+Pour corriger cette défaillance initiale, l'introduction de la configuration \texttt{class\_weight='balanced'} permet de modifier la fonction de coût de la régression logistique en attribuant à chaque classe un poids inversement proportionnel à sa fréquence dans les données d'entraînement. Ainsi, une erreur de classification concernant un client en défaut de paiement devient plus fortement pénalisée lors de la phase d'apprentissage. Ce rééquilibrage contraint le modèle à ajuster sa frontière de décision afin d'accorder davantage d'importance à la détection de la classe minoritaire, conduisant ainsi à une amélioration significative du rappel sur les clients présentant un risque de défaut.
+Comme le démontre la matrice de confusion et le rapport de classification obtenu, cette modification stratégique permet de faire bondir le rappel de la classe 1 à 59\,\% sur l'ensemble d'entraînement et à 57\,\% sur le jeu de validation.
+
+Bien que cette sensibilité accrue induise une légère baisse de précision sur la classe minoritaire à 49\,\% (générant un volume modéré de fausses alertes), le F1-score se stabilise à 0,53 sur le jeu de validation avec une exactitude globale (\textit{Accuracy}) de 78\,\%. Ce compromis s'avère bien plus en phase avec une politique bancaire prudente. L'aire sous la courbe Précision-Rappel atteint par ailleurs un score remarquable de $PR\text{-}AUC = 0,536$, confirmant que la régression logistique équilibrée exploite efficacement la structure linéaire des variables financières pour séparer les profils sains des profils à risque.
+
+\subsection{Arbre de Décision}
+
+L'arbre de décision constitue une alternative non linéaire à la régression logistique, capable de modéliser des interactions complexes entre les variables explicatives. Contrairement aux modèles linéaires, il partitionne l'espace des caractéristiques au travers d'une succession de règles de décision de type "si-alors" (approche gloutonne) afin de séparer progressivement les profils de clients selon leur risque de défaut. La qualité de chaque séparation est évaluée à l'aide de l'indice de Gini, qui mesure la pureté des groupes obtenus.
+
+Cependant, un arbre de décision non contraint possède une forte capacité d'apprentissage pouvant conduire à un phénomène de surapprentissage. Une étape d'optimisation des hyperparamètres a donc été réalisée à l'aide d'une recherche par grille (\textit{GridSearchCV}) associée à une validation croisée, en maximisant le F1-score de la classe minoritaire afin de trouver le meilleur compromis entre précision et rappel. Un premier arbre de décision optimisé, bridé à une profondeur maximale de 5 avec pondération des classes, offre des performances solides sur le jeu de validation avec un rappel de 55\,\% et un F1-score de 0,52 pour la classe minoritaire. Cependant, l'examen de ses performances montre un début de surapprentissage (\textit{overfitting}) classique, la précision chutant de 51\,\% sur l'ensemble d'entraînement à 49\,\% sur la validation.
+
+Afin de régulariser la structure de l'arbre et d'assurer une meilleure généralisation, une recherche par grille (\textit{GridSearchCV}) par validation croisée a été menée en ciblant directement l'optimisation du F1-score. L'algorithme a convergé vers des hyperparamètres contraignant encore plus la croissance de l'arbre, retenant une profondeur maximale \texttt{max\_depth} de 3, un \texttt{min\_samples\_split} de 2 et un \texttt{min\_samples\_leaf} de 1, pour un score F1 moyen en validation croisée de 0,523. Cet élagage drastique transforme l'arbre en une structure très simple et robuste.
+
+Les rapports de classification de ce modèle régularisé illustrent parfaitement l'ajustement du compromis biais-variance. Sur le jeu d'entraînement, le modèle affiche un rappel de 61\,\% pour une précision de 46\,\%. Sur l'ensemble de validation, la perte de performance est extrêmement maîtrisée : le rappel se stabilise à 59\,\% tandis que la précision s'établit à 45\,\%, maintenant un F1-score de 0,51 et une exactitude globale de 75\,\%. Bien que la précision globale soit légèrement inférieure à celle de l'arbre plus profond, la quasi-absence d'écart entre l'entraînement et la validation prouve que la recherche par grille a efficacement éliminé le bruit. Pour la banque, ce modèle à faible profondeur présente un intérêt majeur car ses règles de décision (se limitant à 3 niveaux de coupures successives) sont entièrement visualisables et explicables, offrant un parcours d'audit de risque parfaitement transparent.
+
+\subsection{Forêt Aléatoire (Random Forest)}
+
+La forêt aléatoire est introduite afin d'améliorer la robustesse du processus de décision en s'appuyant sur une méthode d'ensemble basée sur le principe du \textit{bagging}. Contrairement à un arbre unique, fortement sensible aux fluctuations des données d'apprentissage, cet algorithme construit un ensemble d'arbres de décision entraînés sur des échantillons différents obtenus par tirage avec remise (\textit{bootstrap}). De plus, chaque séparation au sein des arbres est réalisée à partir d'un sous-ensemble aléatoire de variables explicatives, ce qui réduit la corrélation entre les arbres et s'avère particulièrement adapté à notre problème où certaines variables présentent des corrélations fortes, comme les montants de facturation (\texttt{BILL\_AMT}). La prédiction finale est obtenue par vote majoritaire de l'ensemble de la forêt, en exploitant le paramètre \texttt{class\_weight='balanced'} pour tenir compte du déséquilibre des classes.
+
+Une première forêt non régularisée, autorisant une profondeur illimitée des arbres (\texttt{max\_depth=None}), met en évidence un surapprentissage important. Le modèle atteint des performances parfaites sur l'ensemble d'entraînement, en affichant des métriques de 1,00, ce qui indique qu'il a appris trop précisément les données, y compris leur bruit. En revanche, sa capacité de généralisation se dégrade fortement sur l'ensemble de validation. Bien que l'exactitude globale reste proche de 79\,\%, cette métrique est peu représentative dans un contexte déséquilibré. Le rappel chute à seulement 34\,\% sur la classe minoritaire, montrant que le modèle ne parvient pas à identifier une grande partie des clients réellement en défaut. Ces performances sur le jeu de validation s'avèrent alors très proches de celles obtenues par la régression logistique initiale(unbalanced), démontrant qu'une forêt aléatoire non régularisée devient trop complexe, perd sa capacité de généralisation et continue de mal détecter une grande partie des clients en défaut.
+
+Une optimisation par recherche par grille (\textit{GridSearchCV}) est alors menée afin de contraindre la structure de la forêt, d'ajuster ses hyperparamètres comme \texttt{max\_depth} ou \texttt{min\_samples\_leaf}, et de rechercher un meilleur compromis entre apprentissage et généralisation. Cette double optimisation montre que le choix de la métrique de scoring influence directement le comportement du modèle et ses performances finales. Lorsqu'elle est guidée par le F1-score, la recherche sélectionne des arbres plus profonds (\texttt{max\_depth = 10}) afin d'équilibrer strictement précision et rappel. Sur le jeu de validation, cette configuration permet d'obtenir une précision de 53\,\%, un rappel de 55\,\% et le meilleur F1-score pour la classe minoritaire (0,54). À l'inverse, lorsque l'optimisation est basée sur le rappel macro, le modèle privilégie des arbres plus simples (\texttt{max\_depth = 5}) ; cette configuration améliore la détection des clients en défaut en poussant le rappel de la classe 1 à 58\,\%, mais entraîne une baisse de la précision à 49\,\%, ce qui augmente donc le nombre de faux positifs.
+
+On observe ainsi un compromis classique entre précision et rappel selon l'objectif choisi, le choix final de la métrique dépendant directement de la priorité métier donnée par la banque à la détection brute des défauts ou à la limitation des alertes injustifiées. La comparaison des performances d'entraînement et de validation confirme que l'optimisation des hyperparamètres a permis de maîtriser efficacement le surapprentissage observé initialement, les scores restant très proches. La configuration optimisée selon le F1-score (\texttt{max\_depth = 10}) est retenue comme le compromis de référence pour la suite de l'étude.
+En affichant une aire sous la courbe Précision-Rappel de $PR\text{-}AUC = 0,544$, ce modèle présente l'une des meilleures capacités globales de discrimination parmi les approches évaluées jusqu'ici. Il constitue un compromis équilibré entre la détection des profils à risque (rappel de 55\,\%) et la limitation des fausses alertes grâce à une précision supérieure à 50\,\%.
+\subsection{Algorithmes de Boosting : AdaBoost et Gradient Boosting}
+
+Le panel des méthodes d'ensemble est complété par l'étude des algorithmes de \textit{boosting}, dont le principe diffère du \textit{bagging} utilisé par la forêt aléatoire. Au lieu de construire plusieurs estimateurs indépendants en parallèle, le \textit{boosting} entraîne une succession de modèles faibles de manière séquentielle, où chaque nouvel apprenant cherche à corriger les erreurs commises par les modèles précédents. Cette stratégie permet de réduire progressivement le biais du modèle et d'obtenir des frontières de décision complexes.
+
+L'algorithme \textit{AdaBoost} constitue la première approche étudiée. Il combine une succession d'arbres de décision peu profonds (\textit{decision stumps}). Lors de la phase d'optimisation, sa fonction objective minimise une perte exponentielle sur un ensemble de $N$ observations :
+\begin{equation}
+L_{\exp} = \frac{1}{N} \sum_{i=1}^N \exp\left(-y_i^* f_M(\vx_i)\right)
+\end{equation}
+Où $y_i^* \in \{-1, 1\}$ représente la variable cible encodée. Cela se traduit par une repondération dynamique augmentant le poids des observations mal classées à chaque itération. Dans notre contexte fortement déséquilibré, l'utilisation d'un estimateur faible pondéré avec \texttt{class\_weight='balanced'} permet de mieux prendre en compte la classe minoritaire lors de l'apprentissage. Les résultats obtenus montrent cependant que cette stratégie reste moins performante, atteignant un rappel de 50\,\%, une précision de 50\,\% ($F1 = 0,50$) et la plus faible aire sous la courbe avec un $PR\text{-}AUC = 0,418$, en raison de la distorsion de la calibration de ses probabilités induite par sa repondération agressive.
+
+Le \textit{Gradient Boosting} est une méthode plus sophistiquée. Cet algorithme ajuste chaque nouvel arbre sur le gradient négatif de sa fonction objective — ici la perte d'entropie croisée binaire (\textit{Binary Cross-Entropy}) :
+\begin{equation}
+L_{BCE} = -\frac{1}{N} \sum_{i=1}^N \left[ y_i \log(p_i) + (1 - y_i) \log(1 - p_i) \right]
+\end{equation}
+Où $p_i$ est la probabilité prédite. L'algorithme réalise ainsi une descente de gradient directement dans l'espace des fonctions pour prédire les résidus des étapes précédentes. L'implémentation de Scikit-Learn ne proposant pas de paramètre \texttt{class\_weight}, le modèle conserve une tendance naturelle à privilégier la classe majoritaire. Cette caractéristique se traduit par une excellente précision de 69\,\% sur les défauts prédits, mais un rappel limité à 35\,\%. L'optimisation des hyperparamètres par \textit{Optuna} (profondeur, nombre d'estimateurs, taux d'apprentissage) a permis au \textit{Gradient Boosting} d'atteindre une excellente aire sous la courbe de $PR\text{-}AUC = 0,547$, soit l'une des meilleures performances du panel. Néanmoins, au seuil de 0,5, son comportement reste trop conservateur pour une politique bancaire prudente, laissant échapper deux tiers des clients défaillants.
+
+\subsection{Modèles géométriques et locaux : SVM et KNN}
+
+Pour enrichir le benchmark, des approches basées sur la géométrie de l'espace des descripteurs ont été déployées, à commencer par la \textit{Machine à Vecteurs de Support} (SVM) utilisant un noyau à fonction de base radiale (RBF). Le SVM aborde la classification en cherchant l'hyperplan qui maximise la marge de séparation entre les classes. En introduisant des variables ressorts $\xi_i \ge 0$ pour tolérer les violations de frontière dans le cas non linéairement séparable, sa fonction objective correspond à la formulation du cours :
+\begin{equation}
+\min_{\vw, b, \boldsymbol{\xi}} \left( \frac{1}{2} \|\vw\|^2 + C \sum_{i=1}^N \xi_i \right) \quad \text{sous contrainte} \quad y_i(\vw^T \Phi(\vx_i) + b) \ge 1 - \xi_i
+\end{equation}
+L'optimisation des hyperparamètres par \textit{Optuna} a permis d'ajuster le paramètre de régularisation $C$ et le coefficient du noyau $\gamma$. Évalué sur le jeu de validation, le SVM (RBF) obtient des performances équilibrées avec une précision de 51\,\%, un rappel de 51\,\% ($F1 = 0,51$) et un $PR\text{-}AUC = 0,526$, confirmant sa capacité à tracer des frontières non linéaires lisses sans surapprendre.
+
+L'algorithme des \textit{K-Plus Proches Voisins} (KNN) constitue une approche locale non paramétrique. Contrairement aux modèles précédents, il n'apprend aucune fonction globale mais stocke les données d'entraînement. Pour classer un nouveau client $\vx_q$, il calcule la distance euclidienne par rapport à toutes les observations de l'espace standardisé :
+\begin{equation}
+d(\vx_i, \vx_q) = \sqrt{\sum_{j=1}^D (x_{ij} - x_{qj})^2}
+\end{equation}
+Il sélectionne les $K$ voisins les plus proches et applique un vote majoritaire. Les performances du KNN se révèlent décevantes sur le jeu de validation, avec une précision de 67\,\% mais un rappel qui s'effondre à 26\,\% ($PR\text{-}AUC = 0,492$). Ce comportement s'explique par deux limites théoriques du cours : d'une part, le déséquilibre des classes fait que la classe majoritaire submerge localement le vote des voisins ; d'autre part, le modèle subit le fléau de la dimensionnalité, l'encodage de l'historique de paiement dilatant l'espace et rendant les distances euclidiennes moins discriminantes.
+
+
+\subsection{Apport de l'apprentissage non supervisé : Clustering K-Means}
+
+Conformément aux concepts de segmentation vus en cours, une approche non supervisée via l'algorithme des \textit{K-Means} a été explorée afin de vérifier si la structure intrinsèque des variables explicatives permet de faire émerger naturellement la notion de risque de défaut sans utiliser la variable cible lors de l'apprentissage. L'algorithme partitionne les $N$ clients en $K$ clusters en minimisant une fonction objective appelée l'inertie intra-classe (\textit{Within-Cluster Sum of Squares} ou WCSS) :
+\begin{equation}
+\min_{\mathbf{S}} \sum_{k=1}^K \sum_{\vx_i \in S_k} \|\vx_i - \boldsymbol{\mu}_k\|^2
+\end{equation}
+Où $\boldsymbol{\mu}_k$ représente le centroïde du cluster $S_k$. La méthode du coude (\textit{Elbow Method}) appliquée sur l'évolution de l'inertie a conduit au choix de $K=3$ clusters distincts.
+
+L'analyse de la composition des clusters révèle que l'algorithme segmente la clientèle selon le niveau d'activité et le volume financier plutôt que selon le risque de crédit. Le Cluster 0 regroupe les clients à forte limite de crédit et transactions élevées, le Cluster 1 rassemble les comptes standard actifs, tandis que le Cluster 2 isole les comptes inactifs (caractérisés par la modalité \texttt{-2}). La proportion de clients en défaut de paiement (classe 1) reste quasi identique au sein de chaque groupe, oscillant autour de la moyenne globale de 22\,\%. Ce résultat démontre de manière empirique que le risque de défaut ne forme pas une structure géométrique de clusters séparables de façon non supervisée. Il valide la nécessité absolue de s'orienter vers des modèles de classification supervisés complexes.
+
+\subsection{Synthèse comparative des modèles}
+
+L'ensemble des modèles du panel a été évalué selon une méthodologie commune. Chaque algorithme a bénéficié d'une phase d'optimisation des hyperparamètres via \textit{Optuna}, dont la fonction objectif reposait sur la maximisation de l'aire sous la courbe Précision-Rappel (\textit{Average Precision}), particulièrement adaptée à notre problématique de classification déséquilibrée. Les meilleures configurations ont ensuite été réentraînées sur l'ensemble d'apprentissage avant d'être évaluées sur le jeu de validation.
+
+Le tableau~\ref{tab:comparaison} présente les performances finales obtenues sur la classe minoritaire correspondant aux clients en défaut de paiement.
+
+\begin{table}[h]
+\centering
+\caption{Comparaison des performances des modèles sur le jeu de validation pour la classe ``défaut''.}
+\label{tab:comparaison}
+\begin{tabular}{lcccc}
+\hline
+\textbf{Modèle} & \textbf{Précision} & \textbf{Rappel} & \textbf{F1-score} & \textbf{PR-AUC} \\
+\hline
+Random Forest          & 0,49 & 0,60 & \textbf{0,54} & \textbf{0,553} \\
+Gradient Boosting      & \textbf{0,69} & 0,35 & 0,47 & 0,547 \\
+Régression Logistique  & 0,50 & 0,57 & 0,53 & 0,536 \\
+SVM (RBF)              & 0,51 & 0,51 & 0,51 & 0,526 \\
+ACP + Logistique       & 0,47 & 0,58 & 0,52 & 0,523 \\
+Arbre de Décision      & 0,45 & \textbf{0,61} & 0,52 & 0,515 \\
+KNN                    & 0,67 & 0,26 & 0,37 & 0,492 \\
+AdaBoost               & 0,50 & 0,50 & 0,50 & 0,418 \\
+\hline
+\end{tabular}
+\end{table}
+
+L'analyse comparative met en évidence l'absence d'un modèle dominant selon l'ensemble des métriques. Le \textit{Gradient Boosting} et la forêt aléatoire présentent les meilleures valeurs de PR-AUC, montrant leur excellente capacité à ordonner les clients selon leur niveau de risque. Cependant, l'utilisation opérationnelle d'un modèle bancaire nécessite également d'étudier le compromis entre précision et rappel au seuil de décision retenu.
+
+Dans cette optique, la forêt aléatoire optimisée constitue le compromis le plus équilibré. Elle atteint le meilleur F1-score (0,54) tout en maintenant un rappel élevé de 60\,\%, ce qui permet de détecter une grande proportion des clients susceptibles d'être en défaut sans générer un volume excessif de fausses alertes.
+
+À l'inverse, le \textit{Gradient Boosting}, malgré une excellente PR-AUC, adopte une stratégie plus conservatrice avec une précision élevée (69\,\%) mais un rappel limité (35\,\%), ce qui implique un risque plus important de laisser passer des clients défaillants. La régression logistique pondérée présente également des performances très compétitives compte tenu de sa simplicité et de son interprétabilité, avec un F1-score de 0,53 and un rappel de 57\,\%.
+
+Finalement, la forêt aléatoire optimisée est retenue comme modèle de référence pour la suite de l'étude. Elle offre le meilleur équilibre entre capacité de discrimination globale, détection des défauts de paiement et limitation des alertes injustifiées, répondant ainsi au compromis attendu par un établissement bancaire prudent.
+
+\section{Recommandation de modèle pour le problème étudié}
+
+À l'issue de la comparaison des huit architectures, c'est la \textbf{Forêt Aléatoire (Random Forest)} qui est retenue comme modèle recommandé à la banque. Ce choix ne repose pas sur une seule métrique, mais sur la convergence de plusieurs critères : la qualité de discrimination globale, l'équilibre entre détection des défauts et limitation des fausses alertes, et la capacité de généralisation vérifiée sur des données totalement nouvelles.
+
+\subsection{Une discrimination globale supérieure}
+
+La métrique de référence de cette étude est l'aire sous la courbe Précision-Rappel (PR-AUC), seule réellement adaptée au contexte de fort déséquilibre (22,2\,\% de défauts) car elle se concentre sur la classe minoritaire sans être flattée par la masse des clients solvables. Sur le jeu de validation, la Forêt Aléatoire obtient le meilleur PR-AUC de l'ensemble du panel ($PR\text{-}AUC = 0,553$), devançant le Gradient Boosting (0,547), la Régression Logistique (0,536) et l'ensemble des autres approches. Ce score, indépendant du seuil de décision, traduit la meilleure capacité intrinsèque du modèle à ordonner correctement les clients selon leur risque réel : à n'importe quel niveau de tolérance fixé par la banque, la forêt fournit le meilleur compromis précision-rappel disponible.
+
+\subsection{Le meilleur compromis métier précision–rappel}
+
+Au-delà du PR-AUC, la Forêt Aléatoire offre également le meilleur F1-score de la classe « défaut » (0,54), en conciliant un rappel élevé (60\,\%) et une précision honorable (49\,\%). Ce point est décisif d'un point de vue métier : le modèle intercepte près de trois défauts de paiement réels sur cinq, tout en maintenant un volume de fausses alertes acceptable. Cette dualité distingue nettement la forêt de ses concurrents les plus proches :
+
+\begin{itemize}
+    \item Le \textbf{Gradient Boosting}, deuxième au classement PR-AUC, souffre d'une sensibilité rigide : faute de paramètre \texttt{class\_weight} dans son implémentation, il adopte une posture conservatrice (précision de 69\,\% mais rappel limité à 35\,\%) et laisse donc échapper près de deux tiers des défauts réels, ce qui est inacceptable pour une politique prudente de gestion du risque.
+    \item L'\textbf{AdaBoost} est pénalisé par une calibration défaillante de ses probabilités (repondération agressive des observations), qui effondre son $PR\text{-}AUC$ à 0,418 malgré un rappel correct au seuil par défaut.
+    \item Le \textbf{KNN} échoue à détecter la classe minoritaire (rappel de 26\,\%, $PR\text{-}AUC = 0,492$), confirmant son inadaptation aux espaces de grande dimension et déséquilibrés.
+    \item La \textbf{Régression Logistique} et la \textbf{SVM} restent des références honorables mais plafonnent en dessous de la forêt, car elles ne capturent pas aussi finement les interactions non linéaires entre variables.
+\end{itemize}
+
+\subsection{Des propriétés structurelles adaptées au jeu de données}
+
+Le choix de la Forêt Aléatoire est par ailleurs cohérent avec la nature même des données. Le mécanisme de \textit{bagging} (agrégation d'arbres entraînés sur des échantillons \textit{bootstrap}) réduit drastiquement la variance qui pénalisait l'arbre de décision unique, tout en conservant sa capacité à modéliser les non-linéarités et les seuils — particulièrement utiles pour exploiter l'historique des statuts de paiement (\texttt{PAY\_0} à \texttt{PAY\_6}). De plus, le tirage aléatoire d'un sous-ensemble de variables à chaque séparation \textit{décorrèle} les arbres, ce qui constitue une réponse directe à la forte colinéarité observée entre les montants de facturation consécutifs (\texttt{BILL\_AMT1} à \texttt{BILL\_AMT6}). Enfin, contrairement aux méthodes de \textit{boosting}, la forêt accepte nativement le paramètre \texttt{class\_weight='balanced'}, ce qui lui permet de traiter le déséquilibre des classes sans dégrader la calibration de ses probabilités.
+
+\subsection{Validation sur l'ensemble de test : une généralisation confirmée}
+
+La preuve déterminante du choix réside dans le comportement du modèle face à des données qu'il n'a jamais vues. L'ensemble de test (6\,000 observations, soit 20\,\% du jeu initial, stratifié sur la cible) a été \textbf{strictement isolé dès le départ} : il n'a servi ni à l'entraînement, ni à l'optimisation des hyperparamètres par validation croisée, ni au choix du seuil de décision. Il fournit donc une estimation non biaisée de la performance réelle du modèle en production.
+
+Les métriques obtenues sur ce jeu de test sont quasi identiques à celles de la validation :
+
+\begin{table}[h]
+\centering
+\caption{Performance de la Forêt Aléatoire : validation vs. test (classe « défaut »).}
+\label{tab:test}
+\begin{tabular}{lccc}
+\hline
+\textbf{Jeu de données} & \textbf{Précision} & \textbf{Rappel} & \textbf{F1} \\
+\hline
+Validation & 0,49 & 0,60 & 0,54 \\
+Test       & 0,49 & 0,60 & 0,54 \\
+\hline
+\end{tabular}
+\end{table}
+
+Sur l'ensemble de test, le modèle conserve un rappel de 60\,\% et une précision de 49\,\% sur la classe « défaut », pour un F1-score de 0,54 et une exactitude globale de 77\,\%. L'écart entre validation et test est négligeable, ce qui démontre que la procédure d'optimisation a effectivement maîtrisé le surapprentissage initialement observé sur la forêt non régularisée (qui affichait des métriques de 1,00 en entraînement). Cette stabilité signifie que les performances annoncées ne sont pas le fruit d'un ajustement opportuniste aux données de validation, mais reflètent une capacité de généralisation robuste : confronté à de nouveaux clients, le modèle reproduit fidèlement le comportement attendu. Pour la banque, cette reproductibilité est la garantie qu'un déploiement opérationnel délivrera bien le niveau de détection du risque mesuré en phase d'étude.
+
+\subsection{Réglage du seuil de décision}
+
+Enfin, le seuil de décision a été ajusté sur le seul jeu de validation afin de ne pas contaminer l'estimation finale. Plutôt que le seuil par défaut de 0,5, inadapté au déséquilibre, le seuil maximisant le F1-score a été retenu ($0,59$, portant le F1 de validation à $0,546$). Ce paramètre reste néanmoins un levier métier : la banque peut l'abaisser pour privilégier la détection brute des défauts (rappel accru), ou le relever pour limiter les fausses alertes (précision accrue), la courbe Précision-Rappel de la forêt dominant celle des autres modèles sur l'ensemble de la plage de fonctionnement.
+
+\section{Répartition des tâches}
+
+Nous avons mené ce projet conjointement, chaque étape ayant fait l'objet d'échanges et de relectures croisées afin de garantir la cohérence de notre démarche.
+
+Nous avons réalisé \textbf{ensemble} les premières étapes du projet : l'analyse exploratoire des données (étude du déséquilibre des classes, analyse de la modalité \texttt{-2} et échange avec l'expert métier, matrice de corrélation), la mise en place des \textit{pipelines} de pré-traitement différenciés (encodage des variables catégorielles et d'historique, \texttt{RobustScaler}), ainsi que la construction du modèle de référence (Régression Logistique avec traitement du déséquilibre par \texttt{class\_weight}).
+
+Nous nous sommes ensuite partagé le panel de modèles :
+
+\begin{itemize}
+    \item \textbf{Aminata} a pris en charge l'Arbre de Décision simple et la Forêt Aléatoire (Random Forest), avec une première phase d'optimisation des hyperparamètres par recherche en grille (\textit{GridSearchCV}).
+    \item \textbf{Armand} a pris en charge les méthodes de \textit{boosting} (AdaBoost, Gradient Boosting), la SVM et le KNN, l'évaluation finale sur le jeu de test, ainsi que l'optimisation des hyperparamètres par Optuna.
+\end{itemize}
+
+Nous avons élaboré \textbf{ensemble} la recommandation finale, l'interprétation des résultats et la structuration du \textit{notebook} et du projet. Enfin, Aminata a assuré la rédaction du rapport, de l'introduction (analyse exploratoire et pré-traitement) jusqu'aux parties Modélisation, Optimisation et optimisation des hyperparamètres.
+
+\end{document}
+
+
+
+
+
+
+
+
