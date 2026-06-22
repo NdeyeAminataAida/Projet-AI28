@@ -362,7 +362,7 @@ def get_model_configurations(class_weight="balanced"):
                 # sont déjà bons avec leurs hyperparamètres par défaut)
                 "final_estimator__C": trial.suggest_float("final_estimator__C", 1e-3, 1e2, log=True),
             },
-            "n_trials": 5, # Réduit à 5 pour économiser ta machine, le Stacking est lourd !
+            "n_trials": 25, # Aligné sur le budget commun de 25 essais Optuna.
         },
           "SVM": {
             "build": lambda cw=class_weight: build_svm_model(class_weight=cw),
@@ -370,9 +370,9 @@ def get_model_configurations(class_weight="balanced"):
                 "svc__C": trial.suggest_float("svc__C", 0.1, 100, log=True),
                 "svc__gamma": trial.suggest_categorical("svc__gamma", ["scale", "auto"]),
             },
-            # Peu d'essais : la SVM à noyau RBF est en O(n²), donc coûteuse sur
-            # ~18k exemples × cv plis. On limite le budget d'optimisation.
-            "n_trials": 1, # à modifier après 
+            # La SVM à noyau RBF est en O(n²), donc coûteuse sur ~18k exemples × cv
+            # plis, mais on l'aligne sur le budget commun de 25 essais Optuna.
+            "n_trials": 25,
         },
     }
 

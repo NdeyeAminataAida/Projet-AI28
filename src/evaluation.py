@@ -99,7 +99,7 @@ def plot_confusion_matrix(model, X, y_true, title="Matrice de confusion",thresho
 
 
 def run_model_comparison(model_configs, X_train, y_train, X_val, y_val,
-                         scoring="average_precision", cv=5, n_trials=1, random_state=42,threshold=0.5):
+                         scoring="average_precision", cv=5, n_trials=25, random_state=42,threshold=0.5):
     '''
     Orchestration unique de toute la modélisation, pilotée par Optuna.
 
