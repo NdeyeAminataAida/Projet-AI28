@@ -28,6 +28,24 @@ def _get_positive_scores(model, X):
     return model.decision_function(X)
 
 
+def _pr_auc_scorer(estimator, X, y):
+    '''
+    Scorer PR-AUC (average precision) robuste, utilisé par run_model_comparison.
+
+    On n'utilise PAS la chaîne "average_precision" de scikit-learn directement :
+    avec sklearn >= 1.9, is_classifier() s'appuie sur les nouveaux tags
+    (__sklearn_tags__) que XGBoost 2.1.3 n'implémente pas. Le scorer intégré ne
+    reconnaît alors pas XGBoost comme un classifieur, ne découpe pas predict_proba
+    sur la classe positive et passe un tableau (n, 2) à average_precision_score
+    -> ValueError, donc score NaN à chaque essai Optuna.
+
+    On réutilise _get_positive_scores (déjà employé partout ailleurs) pour obtenir
+    le score de la classe positive de façon uniforme sur TOUS les modèles. Défini
+    au niveau module (et non en lambda) pour rester picklable avec n_jobs=-1.
+    '''
+    return average_precision_score(y, _get_positive_scores(estimator, X))
+
+
 def train_and_evaluate(pipeline, X_train, y_train, X_val, y_val,threshold=0.5):
     """
     Entraîne une pipeline et affiche les classification reports 
@@ -127,6 +145,10 @@ def run_model_comparison(model_configs, X_train, y_train, X_val, y_val,
     # On coupe les logs "INFO" d'Optuna (un message par essai) pour garder une sortie lisible
     optuna.logging.set_verbosity(optuna.logging.WARNING)
 
+    # Pour le PR-AUC, on substitue notre scorer robuste à la chaîne "average_precision"
+    # (cf. _pr_auc_scorer : nécessaire pour XGBoost sous sklearn >= 1.9).
+    cv_scoring = _pr_auc_scorer if scoring == "average_precision" else scoring
+
     fitted_models = {}
 
     for name, config in model_configs.items():
@@ -139,7 +161,7 @@ def run_model_comparison(model_configs, X_train, y_train, X_val, y_val,
             model = _config["build"]()
             model.set_params(**params)
             return cross_val_score(
-                model, X_train, y_train, scoring=scoring, cv=cv, n_jobs=-1
+                model, X_train, y_train, scoring=cv_scoring, cv=cv, n_jobs=-1
             ).mean()
 
         trials = config.get("n_trials", n_trials)
@@ -282,9 +304,16 @@ def plot_models_pr_curves(models_dict, X_val, y_val, title="Comparaison des Cour
         score_pr_auc = average_precision_score(y_val, y_proba)
         
         print(f"{name} : {score_pr_auc:.3f}")
-        
-        # Ajout de la courbe sur le graphique commun
-        PrecisionRecallDisplay.from_estimator(pipeline, X_val, y_val, ax=ax, name=f"{name} (PR-AUC = {score_pr_auc:.3f})")
+
+        # Ajout de la courbe sur le graphique commun.
+        # On passe par from_predictions (et non from_estimator) avec les scores déjà
+        # calculés : from_estimator appelle is_classifier(), qui renvoie False pour
+        # XGBoost 2.1.3 sous sklearn >= 1.9 (tags __sklearn_tags__ absents) et lève
+        # une ValueError. from_predictions contourne ce contrôle et marche pour TOUS
+        # les modèles (y compris la SVM via decision_function).
+        PrecisionRecallDisplay.from_predictions(
+            y_val, y_proba, ax=ax, name=f"{name} (PR-AUC = {score_pr_auc:.3f})"
+        )
 
     # Configuration et habillage du graphique
     plt.title(title, fontsize=14)

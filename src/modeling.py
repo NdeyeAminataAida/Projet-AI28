@@ -204,7 +204,6 @@ def build_xgboost_model(n_estimators=100, learning_rate=0.1, max_depth=3,
         max_depth=max_depth,
         scale_pos_weight=scale_pos_weight,  # gère le déséquilibre (~78/22 ≈ 3.5)
         eval_metric="aucpr",                # optimise le PR-AUC nativement
-        use_label_encoder=False,
         random_state=42,
         n_jobs=1,
     )
@@ -374,11 +373,7 @@ def get_model_configurations(class_weight="balanced"):
             # plis, mais on l'aligne sur le budget commun de 25 essais Optuna.
             "n_trials": 25,
         },
-    }
-
-'''
-Corriger puis ajouter dans get_model_configurations ou évaluer à part pour avoir les hyper params optimisés
-   "XGBoost": {
+        "XGBoost": {
             "build": lambda: build_xgboost_model(),
             "suggest": lambda trial: {
                 "xgb__n_estimators": trial.suggest_int("xgb__n_estimators", 100, 400, step=50),
@@ -387,4 +382,4 @@ Corriger puis ajouter dans get_model_configurations ou évaluer à part pour avo
                 "xgb__scale_pos_weight": trial.suggest_float("xgb__scale_pos_weight", 1.0, 5.0),
             },
         },
-'''
+    }
