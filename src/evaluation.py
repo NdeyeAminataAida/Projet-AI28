@@ -28,27 +28,31 @@ def _get_positive_scores(model, X):
     return model.decision_function(X)
 
 
-def train_and_evaluate(pipeline, X_train, y_train, X_val, y_val):
+def train_and_evaluate(pipeline, X_train, y_train, X_val, y_val,threshold=0.5):
     """
     Entraîne une pipeline et affiche les classification reports 
-    pour les ensembles de Train et de Validation.
+    pour les ensembles de Train et de Validation en appliquant un seuil personnalisé.
     """
     pipeline.fit(X_train, y_train)
 
-    y_train_pred = pipeline.predict(X_train)
+    # Évaluation Train avec seuil personnalisé
+    y_train_proba = _get_positive_scores(pipeline, X_train)
+    y_train_pred = (y_train_proba >= threshold).astype(int)
 
-    print("--------- Métriques pour TRAIN ---------")
+    print(f"--------- Métriques pour TRAIN(Seuil : {threshold}) ---------")
     print(classification_report(y_train, y_train_pred))
 
-    y_val_pred = pipeline.predict(X_val)
+   # Évaluation Validation avec seuil personnalisé
+    y_val_proba = _get_positive_scores(pipeline, X_val)
+    y_val_pred = (y_val_proba >= threshold).astype(int)
     
-    print("--------- Métriques pour VALIDATION ---------")
+    print(f"--------- Métriques pour VALIDATION(Seuil : {threshold}) ---------")
     print(classification_report(y_val, y_val_pred))
 
     return pipeline
 
 
-def plot_confusion_matrix(model, X, y_true, title="Matrice de confusion"):
+def plot_confusion_matrix(model, X, y_true, title="Matrice de confusion",threshold=0.5):
     """
     Génère les prédictions et affiche la matrice de confusion sous forme de heatmap.
     
@@ -63,8 +67,9 @@ def plot_confusion_matrix(model, X, y_true, title="Matrice de confusion"):
     title : str
         Titre du graphique
     """
-    # Génération automatique des prédictions
-    y_pred = model.predict(X)
+    ## Application rigoureuse du seuil personnalisé sur les probabilités calculées
+    y_proba = _get_positive_scores(model, X)
+    y_pred = (y_proba >= threshold).astype(int)
     
     # Calcul de la matrice
     cm = confusion_matrix(y_true, y_pred)
@@ -94,7 +99,7 @@ def plot_confusion_matrix(model, X, y_true, title="Matrice de confusion"):
 
 
 def run_model_comparison(model_configs, X_train, y_train, X_val, y_val,
-                         scoring="average_precision", cv=5, n_trials=25, random_state=42):
+                         scoring="average_precision", cv=5, n_trials=1, random_state=42,threshold=0.5):
     '''
     Orchestration unique de toute la modélisation, pilotée par Optuna.
 
@@ -154,8 +159,10 @@ def run_model_comparison(model_configs, X_train, y_train, X_val, y_val,
         best_model.set_params(**study.best_params)
         best_model.fit(X_train, y_train)
 
-        print("--------- Métriques VALIDATION ---------")
-        print(classification_report(y_val, best_model.predict(X_val)))
+        print(f"--------- Métriques VALIDATION (Seuil : {threshold}) ---------")
+        y_val_proba = _get_positive_scores(best_model, X_val)
+        y_val_pred = (y_val_proba >= threshold).astype(int)
+        print(classification_report(y_val, y_val_pred))
 
         fitted_models[name] = best_model
 
@@ -217,7 +224,7 @@ def summarize_hyperparameters(model_configs, fitted_models):
     return pd.DataFrame(rows)
 
 
-def summarize_models(models_dict, X_val, y_val):
+def summarize_models(models_dict, X_val, y_val,threshold=0.5):
     '''
     Construit l'UNIQUE tableau récapitulatif comparant tous les modèles optimisés
     sur le jeu de validation (au lieu de recalculer les métriques modèle par modèle).
@@ -228,8 +235,8 @@ def summarize_models(models_dict, X_val, y_val):
     '''
     rows = []
     for name, model in models_dict.items():
-        y_pred = model.predict(X_val)
         y_scores = _get_positive_scores(model, X_val)
+        y_pred = (y_scores >= threshold).astype(int)
         rows.append({
             "Modèle": name,
             "Précision (défaut)": precision_score(y_val, y_pred),
